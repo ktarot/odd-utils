@@ -232,7 +232,7 @@ public sealed class MainForm : Form
         {
             if (copying)
             {
-                MessageBox.Show("복사 중에는 먼저 복사 중지를 눌러주세요.", "ODD Copier");
+                MessageBox.Show("복사 중에는 먼저 복사 중지를 눌러주세요.", "ODD Utils");
                 e.Cancel = true;
             }
             else
@@ -971,7 +971,7 @@ public sealed class MainForm : Form
 
             if (p.CompletedFiles > 0)
             {
-                Text = $"ODD Copier - {meter.Value}%";
+                Text = $"ODD Utils - {meter.Value}%";
             }
         });
 
