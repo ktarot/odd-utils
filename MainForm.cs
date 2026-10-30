@@ -187,7 +187,7 @@ public sealed class MainForm : Form
         {
             if (audio.IsPaused || audio.IsPlaying) audio.TogglePause();
             else audio.Play();
-        });
+        }, expandOnStart: false);
         audioDrawer.MinimizeButton.Click += (_, _) => SetPlayerExpanded(false);
         audioDrawer.FileButton.Click += (_, _) => OpenAudioFiles();
         audioDrawer.CdButton.Click += (_, _) => OpenAudioCd();
@@ -208,7 +208,8 @@ public sealed class MainForm : Form
         {
             if (audio.IsActive && e.Y >= meter.Height - 40 && !copying)
                 RunAudioAction(() => audio.SeekFraction(
-                    (double)e.X / Math.Max(1, meter.Width)));
+                    (double)e.X / Math.Max(1, meter.Width)),
+                    expandOnStart: false);
         };
         drives.SelectedIndexChanged += (_, _) => UpdateDriveInfo();
         openButton.Click += async (_, _) => await TrayCommandAsync(true);
@@ -342,7 +343,7 @@ public sealed class MainForm : Form
         RunAudioAction(() => audio.OpenAudioCd(root));
     }
 
-    private void RunAudioAction(Action action)
+    private void RunAudioAction(Action action, bool expandOnStart = true)
     {
         if (copying) return;
         try
@@ -353,7 +354,7 @@ public sealed class MainForm : Form
             if (audio.IsActive)
             {
                 audioTimer.Start();
-                SetPlayerExpanded(true);
+                if (expandOnStart) SetPlayerExpanded(true);
             }
         }
         catch (Exception ex)
