@@ -293,7 +293,7 @@ internal sealed class AudioEngine : IDisposable
 
     // MCI numeric status is language-independent (unlike mciSendString
     // returning the localized words "audio" / "other").
-    private const uint MciStatusCommand = 0x0804;
+    private const uint MciStatusCommand = 0x0814;
     private const uint MciStatusItem = 0x00000100;
     private const uint MciTrackFlag = 0x00000010;
     private const uint MciCdaStatusTypeTrack = 0x00004001;
