@@ -21,6 +21,7 @@ internal sealed class AudioEngine : IDisposable
     private readonly List<string> files = new();
     private readonly List<long> cdStarts = new();
     private readonly List<long> cdLengths = new();
+    private readonly List<int> cdPhysicalTracks = new();
     private string? cdRoot;
     private bool cdOpen;
     private bool paused;
@@ -34,7 +35,7 @@ internal sealed class AudioEngine : IDisposable
     public int TrackIndex => index;
     public int TrackCount => cdOpen ? cdStarts.Count : files.Count;
     public string CurrentTitle => !IsActive ? "재생할 음악을 선택하세요"
-        : cdOpen ? $"Track {index + 1:00}" : Path.GetFileName(files[index]);
+        : cdOpen ? $"Track {cdPhysicalTracks[index]:00}" : Path.GetFileName(files[index]);
 
     public TimeSpan Duration
     {
@@ -65,7 +66,7 @@ internal sealed class AudioEngine : IDisposable
 
     public IReadOnlyList<string> TrackNames =>
         cdOpen
-            ? Enumerable.Range(1, cdStarts.Count).Select(n => $"Track {n:00}").ToArray()
+            ? cdPhysicalTracks.Select(n => $"Track {n:00}").ToArray()
             : files.Select(Path.GetFileName).ToArray()!;
 
     public string? CurrentFile =>
@@ -99,12 +100,20 @@ internal sealed class AudioEngine : IDisposable
             for (int track = 1; track <= count; track++)
             {
                 string kind = Mci($"status {CdAlias} type track {track}");
+                // Mixed-mode discs can contain ordinary data tracks.
+                // They are skipped; player indexes remain contiguous, and
+                // cdPhysicalTracks retains the original CD track numbering.
                 if (!kind.Contains("audio", StringComparison.OrdinalIgnoreCase))
-                    throw new NotSupportedException(
-                        "데이터 트랙이 섞여 있는 CD는 현재 버전에서 지원하지 않습니다.");
-                cdStarts.Add(long.Parse(Mci($"status {CdAlias} position track {track}")));
-                cdLengths.Add(long.Parse(Mci($"status {CdAlias} length track {track}")));
+                    continue;
+                long start = long.Parse(Mci($"status {CdAlias} position track {track}"));
+                long length = long.Parse(Mci($"status {CdAlias} length track {track}"));
+                if (length <= 0) continue;
+                cdPhysicalTracks.Add(track);
+                cdStarts.Add(start);
+                cdLengths.Add(length);
             }
+            if (cdPhysicalTracks.Count == 0)
+                throw new IOException("재생 가능한 오디오 트랙이 없습니다.");
             SelectTrack(0);
         }
         catch
@@ -264,6 +273,7 @@ internal sealed class AudioEngine : IDisposable
         files.Clear();
         cdStarts.Clear();
         cdLengths.Clear();
+        cdPhysicalTracks.Clear();
         index = 0;
     }
 
