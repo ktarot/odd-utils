@@ -247,8 +247,9 @@ internal sealed class AudioEngine : IDisposable
         {
             try
             {
-                completed = Mci($"status {CdAlias} mode")
-                    .Equals("stopped", StringComparison.OrdinalIgnoreCase);
+                // Device modes are localized as well. Read a numeric
+                // status code to detect track completion reliably.
+                completed = GetNumericCdMode() == MciModeStop;
             }
             catch { return false; }
         }
@@ -299,6 +300,8 @@ internal sealed class AudioEngine : IDisposable
     private const uint MciCdaStatusTypeTrack = 0x00004001;
     private const uint MciCdaTrackAudio = 0x00000440;
     private const uint MciCdaTrackOther = 0x00000441;
+    private const uint MciStatusMode = 0x00000004;
+    private const uint MciModeStop = 0x0000020D;
 
     [StructLayout(LayoutKind.Sequential)]
     private struct MciStatusParameters
@@ -316,6 +319,19 @@ internal sealed class AudioEngine : IDisposable
     private static extern uint MciSendCommand(
         uint deviceId, uint command, uint flags,
         ref MciStatusParameters status);
+
+    private static uint GetNumericCdMode()
+    {
+        uint id = MciGetDeviceId(CdAlias);
+        if (id == 0)
+            throw new IOException("음악 CD의 재생 상태를 확인할 수 없습니다.");
+        var status = new MciStatusParameters { Item = MciStatusMode };
+        uint error = MciSendCommand(id, MciStatusCommand,
+            MciStatusItem, ref status);
+        if (error != 0)
+            throw new IOException($"음악 CD 재생 상태 확인 실패 (MCI {error})");
+        return (uint)status.ReturnValue.ToUInt64();
+    }
 
     private static uint GetNumericCdTrackType(int track)
     {
