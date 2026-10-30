@@ -97,14 +97,23 @@ internal sealed class AudioEngine : IDisposable
             int count = int.Parse(Mci($"status {CdAlias} number of tracks"));
             if (count < 1 || count > 99)
                 throw new IOException("오디오 CD 트랙을 찾지 못했습니다.");
+            // Do NOT compare the localized text result of
+            // "status <alias> type track N" to the English word "audio".
+            // The MCI string API can return localized names ("오디오"),
+            // so Korean Windows incorrectly classified every track as data.
+            int dataTrackCount = 0;
             for (int track = 1; track <= count; track++)
             {
-                string kind = Mci($"status {CdAlias} type track {track}");
-                // Mixed-mode discs can contain ordinary data tracks.
-                // They are skipped; player indexes remain contiguous, and
-                // cdPhysicalTracks retains the original CD track numbering.
-                if (!kind.Contains("audio", StringComparison.OrdinalIgnoreCase))
+                uint kind = GetNumericCdTrackType(track);
+                if (kind == MciCdaTrackOther)
+                {
+                    dataTrackCount++;
                     continue;
+                }
+                if (kind != MciCdaTrackAudio)
+                    throw new IOException(
+                        $"CD 트랙 {track}의 형식을 판별할 수 없습니다. MCI 코드: {kind}");
+
                 long start = long.Parse(Mci($"status {CdAlias} position track {track}"));
                 long length = long.Parse(Mci($"status {CdAlias} length track {track}"));
                 if (length <= 0) continue;
@@ -113,7 +122,10 @@ internal sealed class AudioEngine : IDisposable
                 cdLengths.Add(length);
             }
             if (cdPhysicalTracks.Count == 0)
-                throw new IOException("재생 가능한 오디오 트랙이 없습니다.");
+                throw new IOException(
+                    $"CD 트랙 {count}개 중 오디오 트랙을 찾지 못했습니다. " +
+                    $"데이터 트랙으로 인식: {dataTrackCount}개. " +
+                    "음악 CD가 맞는지 확인하고, 계속 실패하면 ODD의 MCI 호환성을 점검하세요.");
             SelectTrack(0);
         }
         catch
@@ -278,6 +290,57 @@ internal sealed class AudioEngine : IDisposable
     }
 
     public void Dispose() => Stop();
+
+    // MCI numeric status is language-independent (unlike mciSendString
+    // returning the localized words "audio" / "other").
+    private const uint MciStatusCommand = 0x0814;
+    private const uint MciStatusItem = 0x00000100;
+    private const uint MciTrackFlag = 0x00000010;
+    private const uint MciCdaStatusTypeTrack = 0x00004001;
+    private const uint MciCdaTrackAudio = 0x00000440;
+    private const uint MciCdaTrackOther = 0x00000441;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MciStatusParameters
+    {
+        public IntPtr Callback;
+        public UIntPtr ReturnValue;
+        public uint Item;
+        public uint Track;
+    }
+
+    [DllImport("winmm.dll", CharSet = CharSet.Unicode, EntryPoint = "mciGetDeviceIDW")]
+    private static extern uint MciGetDeviceId(string alias);
+
+    [DllImport("winmm.dll", EntryPoint = "mciSendCommandW")]
+    private static extern uint MciSendCommand(
+        uint deviceId, uint command, uint flags,
+        ref MciStatusParameters status);
+
+    private static uint GetNumericCdTrackType(int track)
+    {
+        uint id = MciGetDeviceId(CdAlias);
+        if (id == 0)
+            throw new IOException("열린 오디오 CD 장치를 찾지 못했습니다.");
+
+        var status = new MciStatusParameters
+        {
+            Item = MciCdaStatusTypeTrack,
+            Track = (uint)track
+        };
+
+        uint error = MciSendCommand(id, MciStatusCommand,
+            MciStatusItem | MciTrackFlag, ref status);
+        if (error != 0)
+        {
+            var message = new StringBuilder(256);
+            MciGetErrorString(error, message, (uint)message.Capacity);
+            throw new IOException(
+                $"오디오 CD {track}번 트랙 판별 실패: {message} (MCI {error})");
+        }
+
+        return (uint)status.ReturnValue.ToUInt64();
+    }
 
     [DllImport("winmm.dll", CharSet = CharSet.Unicode, EntryPoint = "mciSendStringW")]
     private static extern uint MciSendString(
