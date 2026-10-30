@@ -1,0 +1,45 @@
+
+name: Build ODD Utils
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install .NET 10
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish portable Windows EXE
+        shell: pwsh
+        run: |
+          dotnet publish ODD_Utils.csproj `
+            --configuration Release `
+            --runtime win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:DebugType=None `
+            -p:DebugSymbols=false `
+            --output publish
+
+      - name: Upload ODD Utils EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: ODD-Utils-Windows-x64
+          path: publish/ODD_Utils.exe
+          if-no-files-found: error
