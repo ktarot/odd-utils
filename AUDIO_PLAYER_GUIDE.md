@@ -1,9 +1,9 @@
-# ODD Copier v2.1 — 오디오 재생 실험 기능
+# ODD Utils / ODD Copier v2.1 — 오디오 재생 기능
 
 기존 ODD 데이터 복사 기능을 유지하면서 같은 360×640 화면에 접이식 **음악 재생** 메뉴를 추가한 버전입니다.
 
 ## 사용 방법
-1. 압축을 풀고 `DVD_Copier.exe` 실행 (표시 이름은 ODD Copier v2.1).
+1. 압축을 풀고 `ODD_Utils.exe` 실행 (표시 이름은 ODD Copier v2.1).
 2. **음악 재생 ▾**을 클릭해 재생 패널을 펼칩니다.
 3. **파일 열기**: PC 또는 ODD의 MP3/M4A/WAV/WMA/FLAC/AAC/AIFF 파일을 여러 개 선택하여 재생합니다. 재생 가능 여부는 Windows 코덱에 따라 달라질 수 있습니다.
 4. **CD 재생**: 오디오 CD(CD-DA)를 삽입하고 ODD 드라이브를 선택한 다음 클릭합니다. 데이터 CD/DVD나 .cda 파일 단독 재생과는 다릅니다.
