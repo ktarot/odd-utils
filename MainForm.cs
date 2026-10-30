@@ -66,6 +66,7 @@ public sealed class MainForm : Form
     private readonly System.Windows.Forms.Timer audioTimer = new() { Interval = 500 };
     private readonly Button audioToggle;
     private readonly Button miniPlayButton;
+    private readonly TableLayoutPanel miniBar;
     private readonly AudioDrawer audioDrawer = new();
     private TableLayoutPanel rootLayout = null!;
     private bool updatingLayout;
@@ -151,13 +152,15 @@ public sealed class MainForm : Form
 
         // Layer 1: a fixed-height, permanent music entry / mini player.
         // Its height never changes when the full player opens.
-        var miniBar = TwoColumns(79);
-        audioToggle = Button("♫  음악 재생  ▴", "neutral", 9);
+        // Same full-height button row as Open/Close and Copy Start/Stop.
+        // Full width at rest; a mini playback button gets 22% when active.
+        miniBar = TwoColumns(100);
+        audioToggle = Button("♫  음악 재생  ▴", "neutral", 12);
         miniPlayButton = Button("Ⅱ", "neutral", 12);
         miniPlayButton.Visible = false;
         miniBar.Controls.Add(audioToggle, 0, 0);
         miniBar.Controls.Add(miniPlayButton, 1, 0);
-        root.Controls.Add(Card(miniBar), 0, 6);
+        root.Controls.Add(miniBar, 0, 6);
 
         // Layer 2: independent floating bottom drawer, sibling of base layout.
         // Not a row within rootLayout: opening it never compresses copy controls.
@@ -304,7 +307,10 @@ public sealed class MainForm : Form
         updatingLayout = true;
         try
         {
-            int[] rows = { 28, 64, 60, 125, 64, 64, 40, 0, 40 };
+            // Three primary control rows are each 64px.
+            // Shrink the LED area from 125px to 96px (23%) without losing
+            // percentage, matrix blocks or the status message area.
+            int[] rows = { 28, 64, 60, 96, 64, 64, 64, 0, 40 };
             rootLayout.SuspendLayout();
             for (int i = 0; i < rows.Length; i++)
             {
@@ -391,6 +397,10 @@ public sealed class MainForm : Form
             active && audio.TrackIndex + 1 < audio.TrackCount);
         audioDrawer.CdButton.Enabled = !copying;
         audioDrawer.FileButton.Enabled = !copying;
+        // Allocate the mini button only when playback actually exists.
+        // Avoid the empty grey area on the music row at startup.
+        miniBar.ColumnStyles[0].Width = active ? 78 : 100;
+        miniBar.ColumnStyles[1].Width = active ? 22 : 0;
         miniPlayButton.Visible = active;
         miniPlayButton.Enabled = active && !copying;
         miniPlayButton.Text = audio.IsPlaying ? "Ⅱ" : "▶";
@@ -1301,7 +1311,10 @@ public sealed class LedMeter : Control
         string str = value.ToString() + "%";
         const int dot = 4, pitch = 6, stride = 38;
         int startX = Math.Max(2, (Width - str.Length * stride) / 2);
-        int startY = Math.Max(4, (Height - 90) / 2);
+        // Fit numeric value + percentage glyph and 10 LED blocks together
+        // inside the compact progress display, without vertical overlap.
+        const int displayHeight = 66; // 40px glyph + 8px gap + 18px bars
+        int startY = Math.Max(1, (Height - displayHeight) / 2);
         using var dimBrush = new SolidBrush(off);
         using var litBrush = new SolidBrush(on);
 
@@ -1319,7 +1332,7 @@ public sealed class LedMeter : Control
         // represents 1% increments, and it pulses during copying.
         int gap = 3, pad = 7;
         int width = Math.Max(10, (Width - 2 * pad - 9 * gap) / 10);
-        int y0 = Height - 34;
+        int y0 = startY + 48;
         int full = value / 10;
         float fraction = value % 10 / 10f;
 
